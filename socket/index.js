@@ -12,6 +12,7 @@ module.exports = (io) => {
     // User joins their personal room
     socket.on("addUser", (userId) => {
       try {
+        socket.userId = userId; // Store userId on socket for later reference
         socket.join(userId.toString());
         onlineUsers.set(userId.toString(), socket.id);
         console.log(`[Socket] User ${userId} joined room`);

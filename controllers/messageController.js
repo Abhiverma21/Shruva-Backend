@@ -55,6 +55,11 @@ exports.sendMessage = async (req, res) => {
     const senderId = req.userId;
 
     if (!chatId || !text) return res.status(400).json({ success: false, message: "chatId and text required" });
+    
+    // Validate text is not empty or just whitespace
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      return res.status(400).json({ success: false, message: "Message text cannot be empty" });
+    }
 
     const chat = await Chat.findById(chatId);
     if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });

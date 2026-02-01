@@ -5,8 +5,17 @@ const Message = require("../models/Message");
 exports.pinChat = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const chat = await Chat.findByIdAndUpdate(chatId, { isPinned: true }, { new: true });
-    res.status(200).json({ success: true, message: "Chat pinned", chat });
+    const userId = req.userId;
+    
+    // Verify user is member of chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+    if (!chat.members.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    
+    const updatedChat = await Chat.findByIdAndUpdate(chatId, { isPinned: true }, { new: true });
+    res.status(200).json({ success: true, message: "Chat pinned", chat: updatedChat });
   } catch (err) {
     console.error("pinChat error", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -17,8 +26,17 @@ exports.pinChat = async (req, res) => {
 exports.unpinChat = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const chat = await Chat.findByIdAndUpdate(chatId, { isPinned: false }, { new: true });
-    res.status(200).json({ success: true, message: "Chat unpinned", chat });
+    const userId = req.userId;
+    
+    // Verify user is member of chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+    if (!chat.members.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    
+    const updatedChat = await Chat.findByIdAndUpdate(chatId, { isPinned: false }, { new: true });
+    res.status(200).json({ success: true, message: "Chat unpinned", chat: updatedChat });
   } catch (err) {
     console.error("unpinChat error", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -29,8 +47,17 @@ exports.unpinChat = async (req, res) => {
 exports.muteChat = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const chat = await Chat.findByIdAndUpdate(chatId, { isMuted: true }, { new: true });
-    res.status(200).json({ success: true, message: "Chat muted", chat });
+    const userId = req.userId;
+    
+    // Verify user is member of chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+    if (!chat.members.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    
+    const updatedChat = await Chat.findByIdAndUpdate(chatId, { isMuted: true }, { new: true });
+    res.status(200).json({ success: true, message: "Chat muted", chat: updatedChat });
   } catch (err) {
     console.error("muteChat error", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -41,8 +68,17 @@ exports.muteChat = async (req, res) => {
 exports.unmuteChat = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const chat = await Chat.findByIdAndUpdate(chatId, { isMuted: false }, { new: true });
-    res.status(200).json({ success: true, message: "Chat unmuted", chat });
+    const userId = req.userId;
+    
+    // Verify user is member of chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+    if (!chat.members.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    
+    const updatedChat = await Chat.findByIdAndUpdate(chatId, { isMuted: false }, { new: true });
+    res.status(200).json({ success: true, message: "Chat unmuted", chat: updatedChat });
   } catch (err) {
     console.error("unmuteChat error", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -53,8 +89,17 @@ exports.unmuteChat = async (req, res) => {
 exports.archiveChat = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const chat = await Chat.findByIdAndUpdate(chatId, { isArchived: true }, { new: true });
-    res.status(200).json({ success: true, message: "Chat archived", chat });
+    const userId = req.userId;
+    
+    // Verify user is member of chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+    if (!chat.members.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    
+    const updatedChat = await Chat.findByIdAndUpdate(chatId, { isArchived: true }, { new: true });
+    res.status(200).json({ success: true, message: "Chat archived", chat: updatedChat });
   } catch (err) {
     console.error("archiveChat error", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -65,6 +110,15 @@ exports.archiveChat = async (req, res) => {
 exports.deleteChat = async (req, res) => {
   try {
     const { chatId } = req.params;
+    const userId = req.userId;
+    
+    // Verify user is member of chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+    if (!chat.members.some(m => m.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    
     await Chat.findByIdAndDelete(chatId);
     res.status(200).json({ success: true, message: "Chat deleted" });
   } catch (err) {
