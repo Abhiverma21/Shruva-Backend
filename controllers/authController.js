@@ -5,25 +5,41 @@ const transporter = require("../config/mailer")
 
 // Signup
 exports.signup = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { username, fullName, email, password } = req.body;
 
-  if (!name || !email || !password) {
+  if (!username || !fullName || !email || !password) {
     return res.status(400).json({ msg: "Please enter all fields" });
   }
 
   try {
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ $or: [{ email }, { username }] });
     if (user) return res.status(400).json({ msg: "User already exists" });
     
     const hashedpassword = await bcrypt.hash(password, 10);
     user = new User({
-      name,
+      username,
+      fullName,
       email,
       password: hashedpassword,
     });
 
     await user.save();
-    res.status(201).json({ msg: "User created successfully" });
+    
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    res.status(201).json({ 
+      success: true,
+      msg: "User created successfully",
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+      }
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server error");
@@ -61,7 +77,8 @@ exports.login = async (req, res) => {
       token,
       user: {
         id: user._id,
-        name: user.name,
+        username: user.username,
+        fullName: user.fullName,
         email: user.email,
       },
     });

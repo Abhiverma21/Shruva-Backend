@@ -3,16 +3,25 @@ const router = express.Router();
 const chatController = require("../controllers/chatController");
 const protect = require("../middleware/Authmiddleware");
 
-// Send a message
-router.post("/send", protect, chatController.sendMessage);
+// GET /api/chats - list chats for logged-in user
+router.get("/", protect, chatController.getChats);
 
-// Get chat history between two users
-router.get("/history/:otherUserId", protect, chatController.getChatHistory);
+// PUT /api/chats/:chatId/pin - pin a chat
+router.put("/:chatId/pin", protect, chatController.pinChat);
 
-// Get all conversations for a user
-router.get("/conversations", protect, chatController.getAllConversations);
+// PUT /api/chats/:chatId/unpin - unpin a chat
+router.put("/:chatId/unpin", protect, chatController.unpinChat);
 
-// Delete a message
-router.delete("/:messageId", protect, chatController.deleteMessage);
+// PUT /api/chats/:chatId/mute - mute notifications
+router.put("/:chatId/mute", protect, chatController.muteChat);
+
+// PUT /api/chats/:chatId/unmute - unmute notifications
+router.put("/:chatId/unmute", protect, chatController.unmuteChat);
+
+// PUT /api/chats/:chatId/archive - archive a chat
+router.put("/:chatId/archive", protect, chatController.archiveChat);
+
+// DELETE /api/chats/:chatId - delete a chat
+router.delete("/:chatId", protect, chatController.deleteChat);
 
 module.exports = router;

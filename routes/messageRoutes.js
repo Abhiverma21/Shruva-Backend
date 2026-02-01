@@ -3,19 +3,13 @@ const router = express.Router();
 const messageController = require("../controllers/messageController");
 const protect = require("../middleware/Authmiddleware");
 
-// Get all messages in a conversation
-router.get("/:conversationId", protect, messageController.getMessages);
+// GET /api/messages/:chatId
+router.get("/:chatId", protect, messageController.getMessagesByChat);
 
-// Create a new message
-router.post("/", protect, messageController.createMessage);
+// POST /api/messages/mark-seen/:messageId
+router.post("/mark-seen/:messageId", protect, messageController.markMessageSeen);
 
-// Update a message
-router.put("/:messageId", protect, messageController.updateMessage);
-
-// Delete a message
-router.delete("/:messageId", protect, messageController.deleteMessage);
-
-// Search messages in a conversation
-router.get("/search/query", protect, messageController.searchMessages);
+// POST /api/messages
+router.post("/", protect, messageController.sendMessage);
 
 module.exports = router;

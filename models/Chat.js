@@ -10,6 +10,18 @@ const chatSchema = new mongoose.Schema({
   lastMessage: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Message"
+  },
+  isPinned: {
+    type: Boolean,
+    default: false
+  },
+  isMuted: {
+    type: Boolean,
+    default: false
+  },
+  isArchived: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

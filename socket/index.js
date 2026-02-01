@@ -1,77 +1,42 @@
+let ioInstance;
 const onlineUsers = new Map(); // userId -> socketId
 
 module.exports = (io) => {
+  ioInstance = io;
+  // update exported reference so other modules can access the instance
+  module.exports.io = ioInstance;
   io.on("connection", (socket) => {
-    console.log("Socket connected:", socket.id);
-
-    // =====================
-    // USER ONLINE
-    // =====================
+    // Client should call `addUser` with their userId to join their room
     socket.on("addUser", (userId) => {
-      onlineUsers.set(userId, socket.id);
-      console.log(`User ${userId} is online`);
-      io.emit("onlineUsers", Array.from(onlineUsers.keys()));
-    });
-
-    // =====================
-    // SEND MESSAGE
-    // =====================
-    socket.on("sendMessage", ({ senderId, receiverId, text }) => {
-      const receiverSocketId = onlineUsers.get(receiverId);
-
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("receiveMessage", {
-          senderId,
-          text,
-          createdAt: new Date()
-        });
-        console.log(`Message from ${senderId} to ${receiverId}`);
-      } else {
-        console.log(`User ${receiverId} is offline`);
+      try {
+        socket.join(userId.toString());
+        onlineUsers.set(userId.toString(), socket.id);
+        io.emit("onlineUsers", Array.from(onlineUsers.keys()));
+      } catch (e) {
+        console.warn("addUser error", e.message || e);
       }
     });
 
-    // =====================
-    // TYPING
-    // =====================
     socket.on("typing", ({ senderId, receiverId }) => {
-      const receiverSocketId = onlineUsers.get(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("typing", senderId);
-      }
+      if (receiverId) io.to(receiverId.toString()).emit("typing", { senderId });
     });
 
-    socket.on("stopTyping", ({ receiverId }) => {
-      const receiverSocketId = onlineUsers.get(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("stopTyping");
-      }
+    socket.on("stopTyping", ({ senderId, receiverId }) => {
+      if (receiverId) io.to(receiverId.toString()).emit("stopTyping", { senderId });
     });
 
-    // =====================
-    // SEEN MESSAGE
-    // =====================
-    socket.on("messageSeen", ({ senderId }) => {
-      const senderSocketId = onlineUsers.get(senderId);
-      if (senderSocketId) {
-        io.to(senderSocketId).emit("messageSeen");
-      }
-    });
-
-    // =====================
-    // DISCONNECT
-    // =====================
     socket.on("disconnect", () => {
       for (let [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {
           onlineUsers.delete(userId);
-          console.log(`User ${userId} is offline`);
           break;
         }
       }
-
       io.emit("onlineUsers", Array.from(onlineUsers.keys()));
-      console.log("Socket disconnected:", socket.id);
     });
   });
 };
+
+
+// allow other modules to access io instance
+module.exports.io = ioInstance;

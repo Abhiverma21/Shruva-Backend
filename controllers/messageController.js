@@ -1,115 +1,81 @@
 const Message = require("../models/Message");
+const Chat = require("../models/Chat");
 
-// Get all messages for a conversation
-    exports.getMessages = async (req, res) => {
-    try {
-        const { conversationId } = req.params;
-
-        const messages = await Message.find({ conversationId })
-        .populate("sender", "name email")
-        .sort({ timestamp: 1 });
-
-        res.status(200).json({ success: true, messages });
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching messages", error: err.message });
-    }
-    };
-
-// Create a new message
-exports.createMessage = async (req, res) => {
+// GET /api/messages/:chatId
+exports.getMessagesByChat = async (req, res) => {
   try {
-    const { conversationId, content } = req.body;
-    const senderId = req.userId;
+    const { chatId } = req.params;
+    if (!chatId) return res.status(400).json({ success: false, message: "chatId required" });
 
-    if (!conversationId || !content) {
-      return res.status(400).json({ message: "Conversation ID and content required" });
-    }
-
-    const message = new Message({
-      conversationId,
-      sender: senderId,
-      content,
-      timestamp: new Date(),
-    });
-
-    await message.save();
-    await message.populate("sender", "name email");
-
-    res.status(201).json({ success: true, message });
-  } catch (err) {
-    res.status(500).json({ message: "Error creating message", error: err.message });
-  }
-};
-
-// Update a message
-exports.updateMessage = async (req, res) => {
-  try {
-    const { messageId } = req.params;
-    const { content } = req.body;
-    const userId = req.userId;
-
-    const message = await Message.findById(messageId);
-
-    if (!message) {
-      return res.status(404).json({ message: "Message not found" });
-    }
-
-    if (message.sender.toString() !== userId) {
-      return res.status(403).json({ message: "You can only edit your own messages" });
-    }
-
-    message.content = content;
-    message.edited = true;
-    message.editedAt = new Date();
-
-    await message.save();
-    res.status(200).json({ success: true, message });
-  } catch (err) {
-    res.status(500).json({ message: "Error updating message", error: err.message });
-  }
-};
-
-// Delete a message
-exports.deleteMessage = async (req, res) => {
-  try {
-    const { messageId } = req.params;
-    const userId = req.userId;
-
-    const message = await Message.findById(messageId);
-
-    if (!message) {
-      return res.status(404).json({ message: "Message not found" });
-    }
-
-    if (message.sender.toString() !== userId) {
-      return res.status(403).json({ message: "You can only delete your own messages" });
-    }
-
-    await Message.findByIdAndDelete(messageId);
-    res.status(200).json({ success: true, message: "Message deleted" });
-  } catch (err) {
-    res.status(500).json({ message: "Error deleting message", error: err.message });
-  }
-};
-
-// Search messages
-exports.searchMessages = async (req, res) => {
-  try {
-    const { conversationId, query } = req.query;
-
-    if (!conversationId || !query) {
-      return res.status(400).json({ message: "Conversation ID and search query required" });
-    }
-
-    const messages = await Message.find({
-      conversationId,
-      content: { $regex: query, $options: "i" },
-    })
-      .populate("sender", "name email")
-      .sort({ timestamp: -1 });
+    const messages = await Message.find({ chatId })
+      .populate("senderId", "username fullName")
+      .sort({ createdAt: 1 });
 
     res.status(200).json({ success: true, messages });
   } catch (err) {
-    res.status(500).json({ message: "Error searching messages", error: err.message });
+    console.error("getMessagesByChat error", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /api/messages/mark-seen/:messageId
+exports.markMessageSeen = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    if (!messageId) return res.status(400).json({ success: false, message: "messageId required" });
+
+    const message = await Message.findByIdAndUpdate(
+      messageId,
+      { isSeen: true },
+      { new: true }
+    ).populate("senderId", "username fullName");
+
+    res.status(200).json({ success: true, message });
+  } catch (err) {
+    console.error("markMessageSeen error", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// POST /api/messages
+exports.sendMessage = async (req, res) => {
+  try {
+    const { chatId, text } = req.body;
+    const senderId = req.userId;
+
+    if (!chatId || !text) return res.status(400).json({ success: false, message: "chatId and text required" });
+
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+
+    const message = await Message.create({ chatId, senderId, text });
+
+    // update chat lastMessage
+    chat.lastMessage = message._id;
+    await chat.save();
+
+    // populate message for response
+    const populatedMessage = await Message.findById(message._id).populate("senderId", "username fullName");
+
+    // Emit to all chat members EXCEPT sender by their userId rooms
+    try {
+      const socketModule = require("../socket");
+      const io = socketModule.io;
+      if (io && Array.isArray(chat.members)) {
+        chat.members.forEach((memberId) => {
+          // Only emit to other members, not the sender (sender already has it from API response)
+          if (memberId.toString() !== senderId.toString()) {
+            io.to(memberId.toString()).emit("newMessage", { chatId, message: populatedMessage });
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Could not emit newMessage", e.message || e);
+    }
+
+    res.status(201).json({ success: true, message: populatedMessage });
+  } catch (err) {
+    console.error("sendMessage error", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
