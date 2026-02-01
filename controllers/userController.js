@@ -58,12 +58,15 @@ exports.addFriend = async (req, res) => {
       chat = await Chat.create({ members: [userId, friendId] });
     }
 
-    // Emit friendAdded event to the friend if socket io is available
+    // Emit friendAdded event to BOTH users (sender and friend)
     try {
       const socketModule = require("../socket");
       const io = socketModule.io;
       if (io) {
+        // Emit to the friend
         io.to(friendId.toString()).emit("friendAdded", { from: userId, chatId: chat._id });
+        // Emit to the user who added the friend (sender)
+        io.to(userId.toString()).emit("friendAdded", { from: friendId, chatId: chat._id });
       }
     } catch (e) {
       // non-fatal
