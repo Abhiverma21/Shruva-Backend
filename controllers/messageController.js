@@ -59,6 +59,12 @@ exports.sendMessage = async (req, res) => {
     const chat = await Chat.findById(chatId);
     if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
 
+    // Verify sender is a member of this chat
+    const isMember = chat.members.some(m => m.toString() === senderId.toString());
+    if (!isMember) {
+      return res.status(403).json({ success: false, message: "You are not a member of this chat" });
+    }
+
     const message = await Message.create({ chatId, senderId, text });
 
     // update chat lastMessage
@@ -68,17 +74,14 @@ exports.sendMessage = async (req, res) => {
     // populate message for response
     const populatedMessage = await Message.findById(message._id).populate("senderId", "username fullName");
 
-    // Emit to all chat members EXCEPT sender by their userId rooms
+    // Emit to ALL users in the chat room (including sender for synchronization)
     try {
       const socketModule = require("../socket");
       const io = socketModule.io;
-      if (io && Array.isArray(chat.members)) {
-        chat.members.forEach((memberId) => {
-          // Only emit to other members, not the sender (sender already has it from API response)
-          if (memberId.toString() !== senderId.toString()) {
-            io.to(memberId.toString()).emit("newMessage", { chatId, message: populatedMessage });
-          }
-        });
+      if (io) {
+        // Emit to the chat room - everyone in this chat gets the message
+        io.to(`chat-${chatId}`).emit("newMessage", { chatId, message: populatedMessage });
+        console.log(`[Message] Emitted to chat room: chat-${chatId}`);
       }
     } catch (e) {
       console.warn("Could not emit newMessage", e.message || e);
