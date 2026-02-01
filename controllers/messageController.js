@@ -5,7 +5,18 @@ const Chat = require("../models/Chat");
 exports.getMessagesByChat = async (req, res) => {
   try {
     const { chatId } = req.params;
+    const userId = req.userId;
+    
     if (!chatId) return res.status(400).json({ success: false, message: "chatId required" });
+
+    // Verify user is a member of this chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+    
+    const isMember = chat.members.some(memberId => memberId.toString() === userId.toString());
+    if (!isMember) {
+      return res.status(403).json({ success: false, message: "Unauthorized: You are not a member of this chat" });
+    }
 
     const messages = await Message.find({ chatId })
       .populate("senderId", "username fullName")
