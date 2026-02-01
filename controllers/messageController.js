@@ -74,14 +74,21 @@ exports.sendMessage = async (req, res) => {
     // populate message for response
     const populatedMessage = await Message.findById(message._id).populate("senderId", "username fullName");
 
-    // Emit to ALL users in the chat room (including sender for synchronization)
+    // Emit to OTHER users in the chat room (not sender - they already have optimistic message)
     try {
       const socketModule = require("../socket");
       const io = socketModule.io;
       if (io) {
-        // Emit to the chat room - everyone in this chat gets the message
-        io.to(`chat-${chatId}`).emit("newMessage", { chatId, message: populatedMessage });
-        console.log(`[Message] Emitted to chat room: chat-${chatId}`);
+        // Get all sockets in the chat room
+        const socketsInRoom = await io.in(`chat-${chatId}`).fetchSockets();
+        
+        // Emit to all OTHER users EXCEPT the sender
+        for (const socket of socketsInRoom) {
+          if (socket.userId?.toString() !== senderId.toString()) {
+            socket.emit("newMessage", { chatId, message: populatedMessage });
+          }
+        }
+        console.log(`[Message] Emitted to chat-${chatId} (excluding sender)`);
       }
     } catch (e) {
       console.warn("Could not emit newMessage", e.message || e);
